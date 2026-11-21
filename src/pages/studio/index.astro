@@ -1,0 +1,106 @@
+---
+import Editorial from '../../layouts/Editorial.astro';
+import '../../styles/studio.css';
+---
+<Editorial title="Writing studio" noindex>
+  <meta slot="head" http-equiv="Content-Security-Policy"
+    content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https:; connect-src https://api.github.com; base-uri 'none'; form-action 'none'; object-src 'none'" />
+  <div class="frame studio">
+    <header class="studio-heading">
+      <div><h1>Writing studio</h1><p>Write, preview, and publish right here.</p></div>
+      <button type="button" id="preview" class="studio-secondary" aria-pressed="false">Preview</button>
+    </header>
+    <div class="studio-layout">
+      <aside class="studio-sidebar" aria-label="Articles and publishing">
+        <button type="button" id="new-post" class="studio-secondary">New article</button>
+        <section>
+          <h2>On this device</h2>
+          <ul id="draft-list"></ul>
+        </section>
+        <section>
+          <h2>On GitHub</h2>
+          <ul id="remote-list"></ul>
+        </section>
+        <section>
+          <h2>Publishing access</h2>
+          <details id="connect-details">
+            <summary>Connect your GitHub account</summary>
+            <p>Create a fine-grained token in GitHub for this repository with <strong>Contents: Read and write</strong>. Enter it here each writing session to publish.</p>
+            <a class="studio-link" href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">Create token on GitHub ↗</a>
+            <form id="connect-form" autocomplete="off">
+              <label for="github-token">Repository token</label>
+              <input id="github-token" type="password" autocomplete="off" spellcheck="false" required />
+              <button type="submit" class="studio-secondary">Connect</button>
+            </form>
+          </details>
+          <p id="connected" hidden>Connected as <strong>kanishkmunot</strong>. <button type="button" id="disconnect" class="studio-link">Disconnect</button></p>
+        </section>
+      </aside>
+      <section class="studio-paper" aria-label="Article editor">
+        <form id="article-form">
+          <div class="studio-fields">
+            <label for="article-title">Title</label>
+            <input id="article-title" type="text" maxlength="180" placeholder="Article title" />
+            <label for="article-subtitle">Subtitle <span>(optional)</span></label>
+            <input id="article-subtitle" type="text" maxlength="280" />
+          </div>
+          <div class="studio-toolbar" aria-label="Text formatting">
+            <button type="button" data-editor-action="bold" aria-label="Bold"><strong>B</strong></button>
+            <button type="button" data-editor-action="italic" aria-label="Italic"><em>I</em></button>
+            <button type="button" data-editor-action="heading" aria-label="Heading">H2</button>
+            <button type="button" data-editor-action="subheading" aria-label="Subheading">H3</button>
+            <button type="button" data-editor-action="bulletList">Bullets</button>
+            <button type="button" data-editor-action="orderedList">Numbered</button>
+            <button type="button" data-editor-action="blockquote">Quote</button>
+            <button type="button" data-editor-action="codeBlock">Code</button>
+            <button type="button" data-editor-action="link">Link</button>
+            <button type="button" data-editor-action="image">Image</button>
+          </div>
+          <div id="editor" class="prose studio-editor"></div>
+          <input id="inline-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/avif" hidden />
+          <details class="studio-metadata">
+            <summary>Article settings and media</summary>
+            <div class="studio-fields">
+              <label for="article-description">Short description</label>
+              <textarea id="article-description" rows="2" maxlength="320"></textarea>
+              <label for="article-date">Publication date</label>
+              <input id="article-date" type="date" />
+              <label for="cover-file">Cover image</label>
+              <input id="cover-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/avif" />
+              <p id="cover-status"></p>
+              <button id="remove-cover" class="studio-link" type="button" hidden>Remove cover</button>
+              <label for="cover-alt">Cover image alt text</label>
+              <input id="cover-alt" type="text" />
+              <label for="cover-caption">Cover image caption</label>
+              <input id="cover-caption" type="text" />
+              <label for="article-videos">YouTube or Vimeo URLs <span>(one per line)</span></label>
+              <textarea id="article-videos" rows="2"></textarea>
+              <label class="studio-checkbox"><input id="article-featured" type="checkbox" /> Feature on homepage</label>
+            </div>
+          </details>
+          <div class="studio-publish">
+            <button id="save-draft" type="button" class="studio-secondary">Save draft</button>
+            <button id="publish" type="submit" class="studio-primary">Publish</button>
+            <button id="unpublish" type="button" class="studio-link" hidden>Unpublish</button>
+            <button id="delete-post" type="button" class="studio-link studio-danger" hidden>Delete</button>
+          </div>
+        </form>
+        <section id="article-preview" class="reading studio-preview" aria-label="Article preview" hidden>
+          <header class="article-header">
+            <time id="preview-date"></time>
+            <h1 id="preview-title"></h1>
+            <p class="subtitle" id="preview-subtitle"></p>
+          </header>
+          <figure id="preview-cover" hidden><img id="preview-image" alt="" /><figcaption id="preview-caption"></figcaption></figure>
+          <div id="preview-body" class="prose"></div>
+          <ul id="preview-videos"></ul>
+        </section>
+        <p id="studio-status" class="studio-status" role="status" aria-live="polite"></p>
+      </section>
+    </div>
+  </div>
+</Editorial>
+<script>
+  import { startStudio } from '../../studio/editor';
+  startStudio();
+</script>

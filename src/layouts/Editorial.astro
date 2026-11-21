@@ -18,6 +18,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <slot name="head" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
     {noindex && <meta name="robots" content="noindex" />}
@@ -46,7 +47,10 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     <footer class="site-footer">
       <div class="frame footer-inner">
         <span>{name}</span>
-        <a href={url('rss.xml')}>RSS feed <span aria-hidden="true">↗</span></a>
+        <div class="footer-links">
+          <a href={url('rss.xml')}>RSS feed <span aria-hidden="true">↗</span></a>
+          <a href={url('studio/')}>Write</a>
+        </div>
       </div>
     </footer>
   </body>
