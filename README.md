@@ -4,7 +4,7 @@ A single-author publication built with Astro and GitHub Pages. The public site a
 
 ## Write and publish on the website
 
-1. Open **Write** from the website footer. Start writing immediately. The editor saves drafts automatically on this device, including uploaded images. Use **Save draft** to save explicitly and **Preview** to review your work. Keep a copy of important drafts before clearing browser data or changing devices.
+1. Open **Write** from the website footer. Start writing immediately. The editor saves drafts automatically on this device, including uploaded images. Use **Save draft** to save explicitly and **Preview** to review your work in desktop or mobile mode. Select text to format it, use **Insert** or type `/` on an empty line to add blocks, and use **Markdown** to edit the source. **Focus mode** hides the sidebar. The article outline links to your headings. Keep a copy of important drafts before clearing browser data or changing devices.
 2. For publishing, create a [fine-grained GitHub token](https://github.com/settings/personal-access-tokens/new) as `kanishkmunot`. Select **Only select repositories**, choose `kanishk-kaleidoscope`, and grant **Contents: Read and write**. Choose an expiry. The studio uses the token for direct GitHub API requests and holds it in memory until you disconnect or leave the page. Keep it private.
 3. In the studio, enter the token under **Publishing access**. Choose **Publish**. The studio commits the article and its images together to `main`, then GitHub Actions rebuilds the site. The studio uses today's date when you leave the publication date blank.
 4. To edit, select an article under **On GitHub**, make your changes, and choose **Update article**. Use **Unpublish** to change its status to Draft, or **Delete** to remove the source file from the current branch.
@@ -13,8 +13,8 @@ The repository is public. Local drafts stay in your browser until you publish. P
 
 ## Add media
 
-- Use **Image** above the editor to upload an inline image or GIF. Enter alternative text and an optional caption.
-- In **Article settings and media**, upload a cover and add alternative text. Add YouTube or Vimeo links on separate lines to include video players below the article on the published site. The studio preview shows links for the videos.
+- Choose **Insert → Image or GIF**, paste an image, or drop image files into the editor. Enter alternative text and an optional caption.
+- In **Article settings and media**, upload a cover and add alternative text. Add YouTube or Vimeo links on separate lines to include video players below the article on the published site. The studio preview displays the same video players.
 - If you choose to use Pages CMS as an alternative, the repository includes its existing configuration. It also supports editing articles and media directly on GitHub.
 
 ## Publish directly on GitHub

@@ -2,6 +2,8 @@ import { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
 import { Markdown } from '@tiptap/markdown';
+import { TableKit } from '@tiptap/extension-table';
+import { TaskList, TaskItem } from '@tiptap/extension-list';
 import { parse, stringify } from 'yaml';
 import { freshDraft, getDrafts, removeDraft, saveDraft, type Draft } from './drafts';
 import { rawMediaUrl, StudioGitHub, type ArticleFile } from './github';
@@ -66,9 +68,24 @@ export function startStudio() {
   let isPreview = false;
   let editVersion = 0;
   let savedVersion = 0;
+  let markdownMode = false;
+  let visualSnapshot = '';
+  let imageQueue: File[] = [];
   const objectUrls = new Map<string, string>();
   const form = element<HTMLFormElement>('article-form');
   const preview = element('article-preview');
+  const editorElement = element('editor');
+  const sourceText = element<HTMLTextAreaElement>('markdown-source');
+  const outline = element('article-outline');
+  const selectionMenu = element('selection-menu');
+  const blocksDialog = element<HTMLDialogElement>('blocks-dialog');
+  const linkDialog = element<HTMLDialogElement>('link-dialog');
+  const imageDialog = element<HTMLDialogElement>('image-dialog');
+  const search = element<HTMLInputElement>('block-search');
+  const blockOptions = element('block-options');
+  const focusMode = element<HTMLButtonElement>('focus-mode');
+  const markdownButton = element<HTMLButtonElement>('markdown-mode');
+  const publishTop = element<HTMLButtonElement>('publish-top');
   const status = element('studio-status');
   const coverFile = element<HTMLInputElement>('cover-file');
   const inlineFile = element<HTMLInputElement>('inline-file');
@@ -108,35 +125,77 @@ export function startStudio() {
   const StudioImage = Image.extend({
     addNodeView() {
       return ({ node }) => {
-        const dom = document.createElement('img');
-        dom.src = imageUrl(node.attrs.src);
-        dom.alt = node.attrs.alt || '';
-        if (node.attrs.title) dom.title = node.attrs.title;
+        const dom = document.createElement('figure');
+        const image = document.createElement('img');
+        const src = imageUrl(node.attrs.src);
+        if (src) image.src = src;
+        image.alt = node.attrs.alt || '';
+        dom.append(image);
+        if (node.attrs.title) {
+          const caption = document.createElement('figcaption');
+          caption.textContent = node.attrs.title;
+          dom.append(caption);
+        }
         return { dom };
       };
     },
   });
 
   const editor = new Editor({
-    element: element('editor'),
-    editorProps: { attributes: { 'aria-label': 'Article body', role: 'textbox', 'aria-multiline': 'true' } },
+    element: editorElement,
+    editorProps: {
+      attributes: { 'aria-label': 'Article body', role: 'textbox', 'aria-multiline': 'true' },
+      handleKeyDown(view, event) {
+        const selection = view.state.selection;
+        if (event.key !== '/' || !selection.empty || selection.$from.parent.textContent) return false;
+        event.preventDefault();
+        openBlocks();
+        return true;
+      },
+      handlePaste(_view, event) {
+        const files = Array.from(event.clipboardData?.files || []).filter(file => mediaFormats.has(file.type));
+        if (!files.length) return false;
+        event.preventDefault();
+        enqueueImages(files);
+        return true;
+      },
+      handleDrop(view, event) {
+        const files = Array.from(event.dataTransfer?.files || []).filter(file => mediaFormats.has(file.type));
+        if (!files.length) return false;
+        event.preventDefault();
+        const position = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos;
+        if (position !== undefined) editor.commands.setTextSelection(position);
+        enqueueImages(files);
+        return true;
+      },
+    },
     injectCSS: false,
     extensions: [
       StarterKit.configure({
         heading: { levels: [2, 3] },
         link: { openOnClick: false, defaultProtocol: 'https' },
       }),
-      StudioImage, Markdown,
+      StudioImage, Markdown, TableKit, TaskList, TaskItem.configure({ nested: true }),
     ],
-    onUpdate: queueSave,
+    onUpdate: () => { queueSave(); updateOutline(); },
     onSelectionUpdate: updateToolbar,
+    onFocus: updateToolbar,
+    onBlur: () => { selectionMenu.hidden = true; },
   });
 
   function capture() {
     for (const [key, input] of Object.entries(fields)) {
       draft[key as keyof typeof fields] = input.value.trim();
     }
-    draft.body = editor.getMarkdown();
+    if (markdownMode) {
+      draft.body = sourceText.value;
+    } else {
+      const serialized = editor.getMarkdown();
+      if (serialized !== visualSnapshot) {
+        draft.body = serialized;
+        visualSnapshot = serialized;
+      }
+    }
     draft.featured = featured.checked;
     draft.videos = [...new Set(videoField.value.split('\n').map(line => line.trim()).filter(Boolean))]
       .map(url => draft.videos.find(video => video.url === url) ??
@@ -154,9 +213,13 @@ export function startStudio() {
     const version = editVersion;
     if (!hasEdits()) {
       await removeDraft(draft.id);
+      element('draft-state').textContent = 'Ready to write';
       if (showMessage) tell('Add a title or some text before saving a draft.');
     } else if (version !== savedVersion || showMessage) {
-      await saveDraft(draft);
+      const used = Object.fromEntries(Object.entries(draft.files).filter(([path]) =>
+        path === draft.cover || draft.body.includes(path)));
+      await saveDraft({ ...draft, files: used });
+      element('draft-state').textContent = 'Saved on this device';
       if (showMessage) tell('Draft saved on this device.');
     }
     savedVersion = version;
@@ -167,6 +230,7 @@ export function startStudio() {
 
   function queueSave() {
     editVersion += 1;
+    element('draft-state').textContent = 'Saving draft…';
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => persist().catch(showError), 350);
   }
@@ -222,8 +286,13 @@ export function startStudio() {
     for (const [key, input] of Object.entries(fields)) input.value = draft[key as keyof typeof fields];
     featured.checked = draft.featured;
     videoField.value = draft.videos.map(video => video.url).join('\n');
+    sourceText.value = draft.body;
     editor.commands.setContent(draft.body, { contentType: 'markdown', emitUpdate: false });
+    visualSnapshot = editor.getMarkdown();
+    setMarkdown(false);
     setPreview(false);
+    element('draft-state').textContent = hasEdits() ? 'Drafts autosave on this device' : 'Ready to write';
+    updateOutline();
     updateCover();
     updateButtons();
     tell('');
@@ -236,6 +305,7 @@ export function startStudio() {
 
   function updateButtons() {
     publishButton.textContent = draft.published ? 'Update article' : 'Publish';
+    publishTop.textContent = publishButton.textContent;
     unpublishButton.hidden = !draft.published;
     deleteButton.hidden = !draft.path && !hasEdits();
   }
@@ -243,10 +313,74 @@ export function startStudio() {
   function updateToolbar() {
     for (const button of buttons) {
       const action = button.dataset.editorAction!;
-      const active = action === 'heading' ? editor.isActive('heading', { level: 2 }) :
-        action === 'subheading' ? editor.isActive('heading', { level: 3 }) : editor.isActive(action);
-      button.setAttribute('aria-pressed', String(active));
+      if (['bold', 'italic', 'underline', 'strike', 'code', 'link'].includes(action)) {
+        button.setAttribute('aria-pressed', String(editor.isActive(action)));
+      }
     }
+    element('table-tools').hidden = markdownMode || !editor.isActive('table');
+    const { from, to, empty } = editor.state.selection;
+    selectionMenu.hidden = markdownMode || empty || !editor.isFocused;
+    if (!selectionMenu.hidden) {
+      const selection = editor.view.coordsAtPos(from);
+      const right = editor.view.coordsAtPos(to);
+      const area = editorElement.parentElement!.getBoundingClientRect();
+      const center = (selection.left + right.right) / 2 - area.left;
+      const left = Math.max(3, Math.min(area.width - selectionMenu.offsetWidth - 3, center - selectionMenu.offsetWidth / 2));
+      selectionMenu.style.left = `${left}px`;
+      selectionMenu.style.top = `${Math.max(1, selection.top - area.top - selectionMenu.offsetHeight - 6)}px`;
+    }
+  }
+
+  function updateOutline() {
+    outline.replaceChildren();
+    editor.state.doc.descendants((node, position) => {
+      if (node.type.name !== 'heading' || !node.textContent.trim()) return;
+      const entry = document.createElement('li');
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'studio-link';
+      button.textContent = node.textContent;
+      entry.dataset.level = String(node.attrs.level);
+      button.addEventListener('click', () => {
+        setPreview(false);
+        setMarkdown(false);
+        const target = editor.view.nodeDOM(position);
+        if (target instanceof HTMLElement) target.scrollIntoView({ block: 'center' });
+        editor.chain().focus().setTextSelection(position + 1).run();
+      });
+      entry.append(button);
+      outline.append(entry);
+    });
+    if (!outline.children.length) {
+      const empty = document.createElement('li');
+      empty.textContent = 'Headings appear here as you write.';
+      outline.append(empty);
+    }
+    const words = editor.getText({ blockSeparator: ' ' }).trim().split(/\s+/u).filter(Boolean).length;
+    element('writing-stats').textContent = `${words} ${words === 1 ? 'word' : 'words'}${words ? ` · ${Math.ceil(words / 220)} min read` : ''}`;
+  }
+
+  function setMarkdown(on: boolean) {
+    if (markdownMode !== on) {
+      if (on) {
+        capture();
+        sourceText.value = draft.body;
+      } else {
+        draft.body = sourceText.value;
+        editor.commands.setContent(draft.body, { contentType: 'markdown', emitUpdate: false });
+        visualSnapshot = editor.getMarkdown();
+        updateOutline();
+      }
+    }
+    markdownMode = on;
+    sourceText.hidden = !on;
+    editorElement.hidden = on;
+    markdownButton.textContent = on ? 'Visual editor' : 'Markdown';
+    markdownButton.setAttribute('aria-pressed', String(on));
+    for (const button of buttons) button.hidden = on;
+    element('insert-block').hidden = on;
+    element('table-tools').hidden = on || !editor.isActive('table');
+    selectionMenu.hidden = true;
   }
 
   function setPreview(on: boolean) {
@@ -256,6 +390,7 @@ export function startStudio() {
     previewButton.textContent = on ? 'Back to editor' : 'Preview';
     previewButton.setAttribute('aria-pressed', String(on));
     if (!on) return;
+    if (markdownMode) setMarkdown(false);
     capture();
     element('preview-title').textContent = draft.title || 'Untitled article';
     element('preview-subtitle').textContent = draft.subtitle;
@@ -272,20 +407,36 @@ export function startStudio() {
     const videos = element('preview-videos');
     videos.replaceChildren();
     for (const video of draft.videos) {
-      if (!videoEmbed(video.url)) continue;
-      const item = document.createElement('li');
+      const embed = videoEmbed(video.url);
+      if (!embed) continue;
+      const figure = document.createElement('figure');
+      figure.className = 'video';
+      const player = document.createElement('iframe');
+      player.src = embed.src;
+      player.title = video.title;
+      player.loading = 'lazy';
+      player.allowFullscreen = true;
+      player.referrerPolicy = 'strict-origin-when-cross-origin';
+      const caption = document.createElement('figcaption');
       const link = document.createElement('a');
       link.href = video.url;
       link.textContent = video.title;
       link.target = '_blank';
       link.rel = 'noopener noreferrer';
-      item.append(link);
-      videos.append(item);
+      caption.append(link);
+      figure.append(player, caption);
+      videos.append(figure);
     }
   }
 
   function requireApi() {
     if (!api) {
+      const studio = form.closest('.studio')!;
+      if (studio.classList.contains('compose-focus')) {
+        studio.classList.remove('compose-focus');
+        focusMode.setAttribute('aria-pressed', 'false');
+        focusMode.textContent = 'Focus mode';
+      }
       element<HTMLDetailsElement>('connect-details').open = true;
       focusConnect = true;
       throw new Error('Connect your GitHub account to publish or manage online articles.');
@@ -412,47 +563,185 @@ export function startStudio() {
     updateCover();
     queueSave();
   });
+  function openNextImage() {
+    if (!imageQueue.length) return;
+    const file = imageQueue[0];
+    element('image-name').textContent = file.name;
+    textField('inline-alt').value = '';
+    textField('inline-caption').value = '';
+    imageDialog.showModal();
+    textField('inline-alt').focus();
+  }
+
+  function enqueueImages(files: File[]) {
+    if (!files.length) return;
+    imageQueue = files;
+    openNextImage();
+  }
+
   inlineFile.addEventListener('change', () => {
-    const file = inlineFile.files?.[0];
+    const files = Array.from(inlineFile.files || []);
     inlineFile.value = '';
+    enqueueImages(files);
+  });
+
+  element<HTMLFormElement>('image-form').addEventListener('submit', event => {
+    event.preventDefault();
+    const file = imageQueue[0];
     if (!file) return;
-    const alt = window.prompt('Describe the image for readers using a screen reader.');
-    if (alt === null) return;
     try {
-      const caption = window.prompt('Optional image caption') || '';
-      editor.chain().focus().setImage({ src: addImage(file), alt, title: caption || undefined }).run();
+      const alt = textField('inline-alt').value.trim();
+      const title = textField('inline-caption').value.trim();
+      const src = addImage(file);
+      imageQueue.shift();
+      imageDialog.close('insert');
+      editor.chain().focus().setImage({ src, alt, title: title || undefined }).run();
     } catch (error) {
+      imageDialog.close();
       showError(error);
     }
   });
+  imageDialog.addEventListener('close', () => {
+    if (imageDialog.returnValue === 'insert') openNextImage();
+    else imageQueue = [];
+    imageDialog.returnValue = '';
+  });
+
+  function openLink() {
+    textField('link-value').value = editor.getAttributes('link').href || '';
+    linkDialog.showModal();
+    textField('link-value').focus();
+  }
+
+  element<HTMLFormElement>('link-form').addEventListener('submit', event => {
+    event.preventDefault();
+    const input = textField('link-value');
+    const href = input.value.trim();
+    input.setCustomValidity(/^https?:\/\//i.test(href) ? '' : 'Enter a valid http:// or https:// URL.');
+    if (!input.reportValidity()) return;
+    linkDialog.close();
+    const link = editor.chain().focus().extendMarkRange('link');
+    if (editor.state.selection.empty && !editor.isActive('link')) {
+      link.insertContent([{ type: 'text', text: href, marks: [{ type: 'link', attrs: { href } }] }]).run();
+    } else {
+      link.setLink({ href }).run();
+    }
+  });
+  textField('link-value').addEventListener('input', event => (event.target as HTMLInputElement).setCustomValidity(''));
+  element('unlink').addEventListener('click', () => {
+    linkDialog.close();
+    editor.chain().focus().extendMarkRange('link').unsetLink().run();
+  });
 
   const commands: Record<string, () => void> = {
+    undo: () => { editor.chain().focus().undo().run(); },
+    redo: () => { editor.chain().focus().redo().run(); },
     bold: () => { editor.chain().focus().toggleBold().run(); },
     italic: () => { editor.chain().focus().toggleItalic().run(); },
+    underline: () => { editor.chain().focus().toggleUnderline().run(); },
+    strike: () => { editor.chain().focus().toggleStrike().run(); },
+    code: () => { editor.chain().focus().toggleCode().run(); },
     heading: () => { editor.chain().focus().toggleHeading({ level: 2 }).run(); },
     subheading: () => { editor.chain().focus().toggleHeading({ level: 3 }).run(); },
     bulletList: () => { editor.chain().focus().toggleBulletList().run(); },
     orderedList: () => { editor.chain().focus().toggleOrderedList().run(); },
+    taskList: () => { editor.chain().focus().toggleTaskList().run(); },
     blockquote: () => { editor.chain().focus().toggleBlockquote().run(); },
     codeBlock: () => { editor.chain().focus().toggleCodeBlock().run(); },
+    divider: () => { editor.chain().focus().setHorizontalRule().run(); },
+    table: () => { editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(); },
+    addRow: () => { editor.chain().focus().addRowAfter().run(); },
+    addColumn: () => { editor.chain().focus().addColumnAfter().run(); },
+    deleteRow: () => { editor.chain().focus().deleteRow().run(); },
+    deleteColumn: () => { editor.chain().focus().deleteColumn().run(); },
+    deleteTable: () => { editor.chain().focus().deleteTable().run(); },
     image: () => inlineFile.click(),
-    link: () => {
-      const href = window.prompt('Link URL (https://)', editor.getAttributes('link').href || '');
-      if (href === null) return;
-      if (!href.trim()) {
-        editor.chain().focus().extendMarkRange('link').unsetLink().run();
-      } else if (/^https?:\/\//i.test(href.trim())) {
-        const link = editor.chain().focus().extendMarkRange('link');
-        if (editor.state.selection.empty && !editor.isActive('link')) {
-          link.insertContent([{ type: 'text', text: href.trim(), marks: [{ type: 'link', attrs: { href: href.trim() } }] }]).run();
-        } else {
-          link.setLink({ href: href.trim() }).run();
-        }
-      } else {
-        tell('Enter a link that starts with https:// or http://.', true);
-      }
+    video: () => {
+      videoField.closest('details')!.open = true;
+      videoField.focus();
     },
+    link: openLink,
   };
+  const blocks: Array<[string, string]> = [
+    ['heading', 'Heading'], ['subheading', 'Subheading'], ['image', 'Image or GIF'],
+    ['video', 'YouTube or Vimeo'], ['blockquote', 'Quote'], ['bulletList', 'Bulleted list'],
+    ['orderedList', 'Numbered list'], ['taskList', 'Checklist'], ['codeBlock', 'Code block'],
+    ['table', 'Table'], ['divider', 'Divider'],
+  ];
+
+  function renderBlocks() {
+    blockOptions.replaceChildren();
+    for (const [key, name] of blocks) {
+      if (!name.toLowerCase().includes(search.value.trim().toLowerCase())) continue;
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = name;
+      button.addEventListener('click', () => {
+        blocksDialog.close();
+        commands[key]();
+      });
+      blockOptions.append(button);
+    }
+    if (!blockOptions.children.length) {
+      const empty = document.createElement('p');
+      empty.textContent = 'No blocks match that search.';
+      blockOptions.append(empty);
+    }
+  }
+
+  function openBlocks() {
+    search.value = '';
+    renderBlocks();
+    blocksDialog.showModal();
+    search.focus();
+  }
+
+  element('insert-block').addEventListener('click', openBlocks);
+  search.addEventListener('input', renderBlocks);
+  search.addEventListener('keydown', event => {
+    const first = blockOptions.querySelector('button');
+    if (!first || !['Enter', 'ArrowDown'].includes(event.key)) return;
+    event.preventDefault();
+    if (event.key === 'Enter') first.click();
+    else first.focus();
+  });
+  element('shortcut-help').addEventListener('click', () => element<HTMLDialogElement>('shortcuts-dialog').showModal());
+  for (const close of document.querySelectorAll<HTMLButtonElement>('[data-close-dialog]')) {
+    close.addEventListener('click', () => close.closest('dialog')?.close());
+  }
+  markdownButton.addEventListener('click', () => {
+    setMarkdown(!markdownMode);
+    if (markdownMode) sourceText.focus();
+    else editor.commands.focus();
+  });
+  sourceText.addEventListener('input', () => {
+    const words = sourceText.value.trim().split(/\s+/u).filter(Boolean).length;
+    element('writing-stats').textContent = `${words} ${words === 1 ? 'word' : 'words'}`;
+  });
+  focusMode.addEventListener('click', () => {
+    const focused = element('article-form').closest('.studio')!.classList.toggle('compose-focus');
+    focusMode.setAttribute('aria-pressed', String(focused));
+    focusMode.textContent = focused ? 'Exit focus mode' : 'Focus mode';
+  });
+  for (const size of ['wide', 'narrow']) {
+    element(`preview-${size}`).addEventListener('click', () => {
+      element('preview-canvas').classList.toggle('preview-mobile', size === 'narrow');
+      element('preview-wide').setAttribute('aria-pressed', String(size === 'wide'));
+      element('preview-narrow').setAttribute('aria-pressed', String(size === 'narrow'));
+    });
+  }
+  publishTop.addEventListener('click', () => form.requestSubmit());
+  form.addEventListener('keydown', event => {
+    if (!event.ctrlKey && !event.metaKey) return;
+    if (event.key.toLowerCase() === 's') {
+      event.preventDefault();
+      task(() => persist(true));
+    }
+    if (event.key.toLowerCase() === 'k' && !markdownMode) {
+      event.preventDefault();
+      openLink();
+    }
+  });
   for (const button of buttons) {
     button.addEventListener('mousedown', event => event.preventDefault());
     button.addEventListener('click', () => {

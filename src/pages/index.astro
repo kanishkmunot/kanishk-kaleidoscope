@@ -1,34 +1,48 @@
 ---
+import { Image } from 'astro:assets';
 import Editorial from '../layouts/Editorial.astro';
 import Story from '../components/Story.astro';
-import { description, name, publishedPosts } from '../lib/posts';
+import prism from '../assets/prism.webp';
+import { articleUrl, name, publishedPosts, url } from '../lib/posts';
 
 const posts = await publishedPosts();
 const feature = posts.find(post => post.data.featured) || posts[0];
 const latest = posts.filter(post => post.id !== feature?.id);
 ---
 <Editorial>
-  <div class="frame">
-    <section class="masthead" aria-labelledby="site-title">
-      <h1 id="site-title">{name}</h1>
-      <p>{description}</p>
+  <div class="frame journal">
+    <section class="journal-hero" aria-labelledby="site-title">
+      <div class="journal-intro">
+        <p class="journal-kicker">A personal journal</p>
+        <h1 id="site-title">{name}</h1>
+        <p class="journal-deck">Ideas, experiences, and different ways of seeing everyday things.</p>
+        <div class="journal-actions">
+          <a class="journal-button" href="#stories">Explore stories <span aria-hidden="true">↘</span></a>
+          <span class="journal-byline">By Kanishk Munot</span>
+        </div>
+      </div>
+      <div class="journal-art">
+        <Image src={prism} alt="Optical glass prisms refract orange and violet light" sizes="(max-width: 760px) 100vw, 600px" layout="constrained" priority />
+      </div>
     </section>
-    {feature ? (
-      <>
-        <section class="story-section" aria-labelledby="featured-heading">
-          <h2 class="section-heading" id="featured-heading">Featured</h2>
+
+    <section class="story-section journal-stories" id="stories" aria-labelledby="stories-heading">
+      <div class="section-title">
+        <h2 id="stories-heading">From the journal</h2>
+        <a href={url('rss.xml')}>Follow via RSS <span aria-hidden="true">↗</span></a>
+      </div>
+      {feature ? (
+        <>
           <Story post={feature} featured />
-        </section>
-        {latest.length > 0 && <section class="story-section" aria-labelledby="latest-heading">
-          <h2 class="section-heading" id="latest-heading">Latest stories</h2>
-          <div class="story-grid">{latest.map(post => <Story post={post} />)}</div>
-        </section>}
-      </>
-    ) : (
-      <section class="story-section" aria-labelledby="latest-heading">
-        <h2 class="section-heading" id="latest-heading">Latest stories</h2>
-        <div class="empty-state"><p>No articles yet.</p></div>
-      </section>
-    )}
+          {latest.length > 0 && <div class="story-grid archive-grid">{latest.map(post => <Story post={post} />)}</div>}
+        </>
+      ) : <div class="empty-state"><p>No articles yet.</p></div>}
+    </section>
+
+    <section class="journal-about" id="about" aria-labelledby="about-heading">
+      <div><p class="journal-kicker">About</p><h2 id="about-heading">A different way of seeing.</h2></div>
+      <div><p>Kanishk’s Kaleidoscope is a personal blog for thoughts, experiences, and ideas worth coming back to.</p>
+      {feature && <a class="journal-text-link" href={articleUrl(feature)}>Start with {feature.data.title.startsWith('Welcome') ? 'the welcome post' : 'the featured story'} <span aria-hidden="true">↗</span></a>}</div>
+    </section>
   </div>
 </Editorial>
