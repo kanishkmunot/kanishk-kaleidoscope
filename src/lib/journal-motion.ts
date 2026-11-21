@@ -10,7 +10,7 @@ export function enableJournalMotion() {
         change.target.classList.add('is-visible');
         observer.unobserve(change.target);
       }
-    }, { threshold: .08 });
+    });
     for (const entry of entries) {
       entry.classList.add('reveal-on-scroll');
       observer.observe(entry);
