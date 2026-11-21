@@ -5,7 +5,6 @@ import type { InferGetStaticPropsType } from 'astro';
 import Cover from '../../components/Cover.astro';
 import PhotoCredit from '../../components/PhotoCredit.astro';
 import { unsplashCover } from '../../lib/cover-credit';
-import Narration from '../../components/Narration.astro';
 import Editorial from '../../layouts/Editorial.astro';
 import { coverImage, formatDate, publishedPosts, summary, url } from '../../lib/posts';
 import { videoEmbed } from '../../lib/video.mjs';
@@ -31,7 +30,6 @@ const videos = (data.videos || []).map(video => ({ ...video, embed: videoEmbed(v
       <div class="article-byline"><span>Kanishk Munot</span><time datetime={date.toISOString()}>{formatDate(date)}</time><span>{Math.max(1, Math.ceil((post.body || '').split(/\s+/).filter(Boolean).length / 220))} min read</span></div>
       <h1>{data.title}</h1>
       {data.subtitle && <p class="subtitle">{data.subtitle}</p>}
-      <Narration />
     </header>
     {cover && <figure class="article-cover">
       <Cover image={cover} alt={data.coverAlt || ''} sizes="(max-width: 1140px) 100vw, 1050px" priority />

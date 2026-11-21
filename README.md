@@ -17,13 +17,11 @@ The repository is public. Local drafts stay in your browser until you publish. P
 - In **Article settings and media**, upload a cover and add alternative text. Add YouTube or Vimeo links on separate lines to include video players below the article on the published site. The studio preview displays the same video players.
 - If you choose to use Pages CMS as an alternative, the repository includes its existing configuration. It also supports editing articles and media directly on GitHub.
 
-## Covers, appearance and narration
+## Covers and appearance
 
 Open **Article settings and media → Choose an Unsplash cover** to select one of the included Unsplash photos. The studio fills in the alt text and adds linked photographer credit on the published article and its card. **Browse more photos on Unsplash** opens the full catalog. To use another photo, upload it as a cover and fill in **Unsplash credit** with the photographer's name, profile URL, and photo URL.
 
 **Site colors** lets you preview and save a palette for the public blog. Visitors still choose light or dark mode independently. The theme changes deploy through the same GitHub Pages workflow.
-
-Public articles have a **Listen** button in browsers that support speech synthesis. They prioritize available natural-sounding English female voices, with pause, resume, stop, and a voice picker when multiple English voices are available.
 
 ## Publish directly on GitHub
 
