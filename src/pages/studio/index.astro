@@ -2,55 +2,53 @@
 import Editorial from '../../layouts/Editorial.astro';
 import '../../styles/studio.css';
 ---
-<Editorial title="Writing studio" noindex>
+<Editorial title="Owner access" noindex workspace>
   <meta slot="head" http-equiv="Content-Security-Policy"
     content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' blob: data: https:; connect-src https://api.github.com; frame-src https://www.youtube-nocookie.com https://player.vimeo.com; base-uri 'none'; form-action 'none'; object-src 'none'" />
+  <section class="owner-access" id="owner-access" aria-labelledby="owner-heading">
+    <h1 id="owner-heading">Owner access</h1>
+    <form id="connect-form" autocomplete="off">
+      <label for="github-token">GitHub repository token</label>
+      <input id="github-token" type="password" autocomplete="off" spellcheck="false" required />
+      <button type="submit" class="studio-primary">Unlock</button>
+    </form>
+    <p id="access-status" role="status"></p>
+  </section>
+  <div id="workspace-mount" hidden></div>
+  <template id="workspace-template">
   <div class="frame studio">
     <header class="studio-heading">
-      <div><h1>Writing studio</h1><p>Write and publish on Kanishk’s Kaleidoscope.</p></div>
+      <h1>Writing studio</h1>
       <div class="studio-view-controls">
-        <button type="button" id="focus-mode" class="studio-secondary" aria-pressed="false">Focus mode</button>
-        <button type="button" id="preview" class="studio-secondary" aria-pressed="false">Preview</button>
-        <button type="button" form="article-form" id="publish-top" class="studio-primary">Publish</button>
+        <button type="button" id="focus-mode" class="studio-secondary" aria-pressed="false">Focus</button>
+        <button type="button" id="preview" class="studio-secondary" aria-pressed="false">Live preview</button>
+        <button type="button" id="publish-top" class="studio-primary">Publish</button>
+        <button type="button" id="disconnect" class="studio-link">Lock</button>
       </div>
     </header>
     <div class="studio-layout">
-      <aside class="studio-sidebar" aria-label="Articles and publishing">
+      <aside class="studio-sidebar" aria-label="Drafts, articles and outline">
         <button type="button" id="new-post" class="studio-secondary">New article</button>
         <section>
-          <h2>On this device</h2>
+          <h2>Local drafts</h2>
           <ul id="draft-list"></ul>
         </section>
         <section>
-          <h2>On GitHub</h2>
+          <h2>Repository articles</h2>
           <ul id="remote-list"></ul>
         </section>
         <section id="outline-panel">
           <h2>Article outline</h2>
           <ul id="article-outline"></ul>
         </section>
-        <section>
-          <h2>Publishing access</h2>
-          <details id="connect-details">
-            <summary>Connect your GitHub account</summary>
-            <p>Create a fine-grained token in GitHub for this repository with <strong>Contents: Read and write</strong>. Enter it here each writing session to publish.</p>
-            <a class="studio-link" href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">Create token on GitHub ↗</a>
-            <form id="connect-form" autocomplete="off">
-              <label for="github-token">Repository token</label>
-              <input id="github-token" type="password" autocomplete="off" spellcheck="false" required />
-              <button type="submit" class="studio-secondary">Connect</button>
-            </form>
-          </details>
-          <p id="connected" hidden>Connected as <strong>kanishkmunot</strong>. <button type="button" id="disconnect" class="studio-link">Disconnect</button></p>
-        </section>
       </aside>
       <section class="studio-paper" aria-label="Article editor">
         <form id="article-form">
           <div class="studio-fields">
-            <label for="article-title">Title</label>
+            <label class="studio-visually-hidden" for="article-title">Title</label>
             <input id="article-title" type="text" maxlength="180" placeholder="Article title" />
-            <label for="article-subtitle">Subtitle <span>(optional)</span></label>
-            <input id="article-subtitle" type="text" maxlength="280" />
+            <label class="studio-visually-hidden" for="article-subtitle">Subtitle</label>
+            <input id="article-subtitle" type="text" maxlength="280" placeholder="Add a subtitle" />
           </div>
           <div class="studio-compose">
             <div class="studio-toolbar" aria-label="Text formatting">
@@ -77,6 +75,7 @@ import '../../styles/studio.css';
               <button type="button" data-editor-action="deleteTable">Remove table</button>
             </div>
             <div id="editor" class="prose studio-editor"></div>
+            <button type="button" id="insert-at-line" aria-label="Insert at current line" hidden>+</button>
             <textarea id="markdown-source" class="markdown-source" aria-label="Article Markdown" rows="14" hidden></textarea>
             <div id="selection-menu" class="selection-menu" role="toolbar" aria-label="Format selection" hidden>
               <button type="button" data-editor-action="bold" aria-label="Selection bold"><strong>B</strong></button>
@@ -119,6 +118,7 @@ import '../../styles/studio.css';
         </form>
         <section id="article-preview" class="studio-preview" aria-label="Article preview" hidden>
           <div class="preview-controls" aria-label="Preview viewport">
+            <h2>Live preview</h2>
             <button type="button" class="studio-secondary" id="preview-wide" aria-pressed="true">Desktop</button>
             <button type="button" class="studio-secondary" id="preview-narrow" aria-pressed="false">Mobile</button>
           </div>
@@ -173,8 +173,8 @@ import '../../styles/studio.css';
       </dl>
     </dialog>
   </div>
+  </template>
 </Editorial>
 <script>
-  import { startStudio } from '../../studio/editor';
-  startStudio();
+  import '../../studio/access';
 </script>

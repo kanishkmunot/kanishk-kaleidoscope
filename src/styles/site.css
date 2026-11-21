@@ -32,7 +32,6 @@ main:focus { outline: 0; }
 .header-link:hover, .footer-inner a:hover, .wordmark:hover { color: var(--accent); text-decoration: underline; text-underline-offset: .2em; }
 .site-footer { border-top: 1px solid var(--line); color: var(--muted); }
 .footer-inner { min-height: 83px; }
-.footer-links { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .45rem 1rem; }
 
 .masthead { padding: clamp(3.75rem, 10vw, 9rem) 0 clamp(3rem, 7vw, 6.25rem); }
 .masthead h1, .article-header h1 { font-weight: 690; letter-spacing: -.064em; line-height: 1.04; overflow-wrap: anywhere; text-wrap: balance; }

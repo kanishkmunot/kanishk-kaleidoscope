@@ -3,7 +3,7 @@ import { Image } from 'astro:assets';
 import Editorial from '../layouts/Editorial.astro';
 import Story from '../components/Story.astro';
 import prism from '../assets/prism.webp';
-import { articleUrl, name, publishedPosts, url } from '../lib/posts';
+import { name, publishedPosts } from '../lib/posts';
 
 const posts = await publishedPosts();
 const feature = posts.find(post => post.data.featured) || posts[0];
@@ -17,7 +17,7 @@ const latest = posts.filter(post => post.id !== feature?.id);
         <h1 id="site-title">{name}</h1>
         <p class="journal-deck">Ideas, experiences, and different ways of seeing everyday things.</p>
         <div class="journal-actions">
-          <a class="journal-button" href="#stories">Explore stories <span aria-hidden="true">↘</span></a>
+          <a class="journal-button" href="#stories">Explore stories <span aria-hidden="true">↓</span></a>
           <span class="journal-byline">By Kanishk Munot</span>
         </div>
       </div>
@@ -29,7 +29,6 @@ const latest = posts.filter(post => post.id !== feature?.id);
     <section class="story-section journal-stories" id="stories" aria-labelledby="stories-heading">
       <div class="section-title">
         <h2 id="stories-heading">From the journal</h2>
-        <a href={url('rss.xml')}>Follow via RSS <span aria-hidden="true">↗</span></a>
       </div>
       {feature ? (
         <>
@@ -39,10 +38,5 @@ const latest = posts.filter(post => post.id !== feature?.id);
       ) : <div class="empty-state"><p>No articles yet.</p></div>}
     </section>
 
-    <section class="journal-about" id="about" aria-labelledby="about-heading">
-      <div><p class="journal-kicker">About</p><h2 id="about-heading">A different way of seeing.</h2></div>
-      <div><p>Kanishk’s Kaleidoscope is a personal blog for thoughts, experiences, and ideas worth coming back to.</p>
-      {feature && <a class="journal-text-link" href={articleUrl(feature)}>Start with {feature.data.title.startsWith('Welcome') ? 'the welcome post' : 'the featured story'} <span aria-hidden="true">↗</span></a>}</div>
-    </section>
   </div>
 </Editorial>

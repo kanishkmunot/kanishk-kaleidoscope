@@ -53,7 +53,7 @@ export class StudioGitHub {
   async verifyOwner() {
     const account = await this.api<{ login: string }>('/user');
     if (account.login.toLowerCase() !== owner) throw new Error('Use the token from the blog owner’s GitHub account.');
-    await this.list();
+    return this.list();
   }
 
   async list(): Promise<ArticleFile[]> {

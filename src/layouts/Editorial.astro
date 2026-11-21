@@ -11,9 +11,10 @@ interface Props {
   image?: string;
   published?: Date;
   noindex?: boolean;
+  workspace?: boolean;
 }
 
-const { title, description = siteDescription, image, published, noindex = false } = Astro.props;
+const { title, description = siteDescription, image, published, noindex = false, workspace = false } = Astro.props;
 const pageTitle = title ? `${title} | ${name}` : name;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 ---
@@ -28,7 +29,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     <title>{pageTitle}</title>
     {!noindex && <link rel="canonical" href={canonical} />}
     <link rel="icon" type="image/svg+xml" href={url('favicon.svg')} />
-    <link rel="alternate" type="application/rss+xml" title={name} href={url('rss.xml')} />
+    <script is:inline src={url('theme.js')}></script>
     <meta property="og:title" content={pageTitle} />
     <meta property="og:site_name" content={name} />
     <meta property="og:description" content={description} />
@@ -44,21 +45,15 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
       <div class="frame header-inner">
         <a class="wordmark" href={url()}>{name}</a>
         <nav class="site-nav" aria-label="Main navigation">
-          <a href={url() + '#stories'}>Stories</a>
-          <a href={url() + '#about'}>About</a>
-          <a class="nav-write" href={url('studio/')}>Write <span aria-hidden="true">↗</span></a>
+          {!workspace && <a href={url() + '#stories'}>Stories</a>}
+          <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Dark mode" aria-pressed="false" hidden>
+            <span class="theme-moon" aria-hidden="true">☾</span>
+            <span class="theme-sun" aria-hidden="true">☼</span>
+          </button>
         </nav>
       </div>
     </header>
     <main id="main" tabindex="-1"><slot /></main>
-    <footer class="site-footer">
-      <div class="frame footer-inner">
-        <span>{name}</span>
-        <div class="footer-links">
-          <a href={url('rss.xml')}>RSS feed <span aria-hidden="true">↗</span></a>
-          <a href={url('studio/')}>Write</a>
-        </div>
-      </div>
-    </footer>
+    {!workspace && <footer class="site-footer"><div class="frame footer-inner">{name}</div></footer>}
   </body>
 </html>

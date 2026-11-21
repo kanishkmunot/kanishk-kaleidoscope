@@ -57,15 +57,16 @@ function markdownFromPost(draft: Draft, published: boolean) {
   return `---\n${stringify(data, { lineWidth: 0 })}---\n\n${draft.body.trim()}\n`;
 }
 
-export function startStudio() {
+export function startStudio(client: StudioGitHub, files: ArticleFile[]) {
   let draft = freshDraft();
-  let api: StudioGitHub | undefined;
   let localDrafts: Draft[] = [];
-  let remoteFiles: ArticleFile[] = [];
+  let remoteFiles = files;
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
   let busy = false;
-  let focusConnect = false;
-  let isPreview = false;
+  let isPreview = window.matchMedia('(min-width: 1000px)').matches;
+  let previewTimer: ReturnType<typeof setTimeout> | undefined;
+  let previewVideoKey = '';
+  let markdownPreview: Editor | undefined;
   let editVersion = 0;
   let savedVersion = 0;
   let markdownMode = false;
@@ -75,6 +76,8 @@ export function startStudio() {
   const form = element<HTMLFormElement>('article-form');
   const preview = element('article-preview');
   const editorElement = element('editor');
+  const insertAtLine = element<HTMLButtonElement>('insert-at-line');
+  const studio = form.closest('.studio')!;
   const sourceText = element<HTMLTextAreaElement>('markdown-source');
   const outline = element('article-outline');
   const selectionMenu = element('selection-menu');
@@ -141,6 +144,14 @@ export function startStudio() {
     },
   });
 
+  const extensions = () => [
+    StarterKit.configure({
+      heading: { levels: [2, 3] },
+      link: { openOnClick: false, defaultProtocol: 'https' },
+    }),
+    StudioImage, Markdown, TableKit, TaskList, TaskItem.configure({ nested: true }),
+  ];
+
   const editor = new Editor({
     element: editorElement,
     editorProps: {
@@ -170,17 +181,11 @@ export function startStudio() {
       },
     },
     injectCSS: false,
-    extensions: [
-      StarterKit.configure({
-        heading: { levels: [2, 3] },
-        link: { openOnClick: false, defaultProtocol: 'https' },
-      }),
-      StudioImage, Markdown, TableKit, TaskList, TaskItem.configure({ nested: true }),
-    ],
+    extensions: extensions(),
     onUpdate: () => { queueSave(); updateOutline(); },
     onSelectionUpdate: updateToolbar,
     onFocus: updateToolbar,
-    onBlur: () => { selectionMenu.hidden = true; },
+    onBlur: () => { selectionMenu.hidden = true; insertAtLine.hidden = true; },
   });
 
   function capture() {
@@ -233,6 +238,10 @@ export function startStudio() {
     element('draft-state').textContent = 'Saving draft…';
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => persist().catch(showError), 350);
+    if (isPreview) {
+      clearTimeout(previewTimer);
+      previewTimer = setTimeout(renderPreview, 100);
+    }
   }
 
   function appendListItem(parent: HTMLElement, name: string, action: () => void) {
@@ -268,12 +277,12 @@ export function startStudio() {
         if (draft.path === file.path) return;
         await persist();
         const saved = localDrafts.find(item => item.path === file.path && item.sha === file.sha);
-        load(saved || postFromMarkdown(await requireApi().read(file), file));
+        load(saved || postFromMarkdown(await client.read(file), file));
       }));
     }
     if (!remoteFiles.length) {
       const empty = document.createElement('li');
-      empty.textContent = api ? 'No articles yet.' : 'Connect to view your articles.';
+      empty.textContent = 'No articles yet.';
       remoteList.append(empty);
     }
   }
@@ -290,7 +299,7 @@ export function startStudio() {
     editor.commands.setContent(draft.body, { contentType: 'markdown', emitUpdate: false });
     visualSnapshot = editor.getMarkdown();
     setMarkdown(false);
-    setPreview(false);
+    setPreview(isPreview);
     element('draft-state').textContent = hasEdits() ? 'Drafts autosave on this device' : 'Ready to write';
     updateOutline();
     updateCover();
@@ -318,7 +327,14 @@ export function startStudio() {
       }
     }
     element('table-tools').hidden = markdownMode || !editor.isActive('table');
-    const { from, to, empty } = editor.state.selection;
+    const { from, to, empty, $from } = editor.state.selection;
+    insertAtLine.hidden = markdownMode || !editor.isFocused || !empty ||
+      $from.parent.type.name !== 'paragraph' || $from.parent.content.size !== 0;
+    if (!insertAtLine.hidden) {
+      const caret = editor.view.coordsAtPos(from);
+      const region = editorElement.parentElement!.getBoundingClientRect();
+      insertAtLine.style.top = `${caret.top - region.top - 2}px`;
+    }
     selectionMenu.hidden = markdownMode || empty || !editor.isFocused;
     if (!selectionMenu.hidden) {
       const selection = editor.view.coordsAtPos(from);
@@ -342,7 +358,6 @@ export function startStudio() {
       button.textContent = node.textContent;
       entry.dataset.level = String(node.attrs.level);
       button.addEventListener('click', () => {
-        setPreview(false);
         setMarkdown(false);
         const target = editor.view.nodeDOM(position);
         if (target instanceof HTMLElement) target.scrollIntoView({ block: 'center' });
@@ -381,16 +396,20 @@ export function startStudio() {
     element('insert-block').hidden = on;
     element('table-tools').hidden = on || !editor.isActive('table');
     selectionMenu.hidden = true;
+    insertAtLine.hidden = true;
   }
 
   function setPreview(on: boolean) {
     isPreview = on;
-    form.hidden = on;
     preview.hidden = !on;
-    previewButton.textContent = on ? 'Back to editor' : 'Preview';
+    studio.classList.toggle('with-live-preview', on);
     previewButton.setAttribute('aria-pressed', String(on));
-    if (!on) return;
-    if (markdownMode) setMarkdown(false);
+    clearTimeout(previewTimer);
+    if (on) renderPreview();
+  }
+
+  function renderPreview() {
+    if (!isPreview) return;
     capture();
     element('preview-title').textContent = draft.title || 'Untitled article';
     element('preview-subtitle').textContent = draft.subtitle;
@@ -398,13 +417,32 @@ export function startStudio() {
     const cover = element<HTMLImageElement>('preview-image');
     const coverSrc = imageUrl(draft.cover);
     element('preview-cover').hidden = !coverSrc;
-    if (coverSrc) cover.src = coverSrc;
+    if (coverSrc && cover.getAttribute('src') !== coverSrc) cover.src = coverSrc;
     cover.alt = draft.coverAlt;
     element('preview-caption').textContent = draft.coverCaption;
-    // The visible preview is cloned from ProseMirror's rendered DOM.
+    let previewEditor = editor;
+    if (markdownMode) {
+      markdownPreview ??= new Editor({
+        element: document.createElement('div'),
+        extensions: extensions(),
+        injectCSS: false,
+        editable: false,
+      });
+      markdownPreview.commands.setContent(draft.body, { contentType: 'markdown', emitUpdate: false });
+      previewEditor = markdownPreview;
+    }
     const body = element('preview-body');
-    body.replaceChildren(...Array.from(editor.view.dom.childNodes, node => node.cloneNode(true)));
+    body.replaceChildren(...Array.from(previewEditor.view.dom.childNodes, node => node.cloneNode(true)));
+    for (const control of body.querySelectorAll<HTMLInputElement>('input')) control.disabled = true;
+    for (const link of body.querySelectorAll<HTMLAnchorElement>('a[href]')) {
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+    }
+    for (const handle of body.querySelectorAll('.ProseMirror-trailingBreak, .column-resize-handle')) handle.remove();
     const videos = element('preview-videos');
+    const key = JSON.stringify(draft.videos);
+    if (previewVideoKey === key) return;
+    previewVideoKey = key;
     videos.replaceChildren();
     for (const video of draft.videos) {
       const embed = videoEmbed(video.url);
@@ -429,21 +467,6 @@ export function startStudio() {
     }
   }
 
-  function requireApi() {
-    if (!api) {
-      const studio = form.closest('.studio')!;
-      if (studio.classList.contains('compose-focus')) {
-        studio.classList.remove('compose-focus');
-        focusMode.setAttribute('aria-pressed', 'false');
-        focusMode.textContent = 'Focus mode';
-      }
-      element<HTMLDetailsElement>('connect-details').open = true;
-      focusConnect = true;
-      throw new Error('Connect your GitHub account to publish or manage online articles.');
-    }
-    return api;
-  }
-
   function setBusy(value: boolean) {
     busy = value;
     for (const control of document.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLTextAreaElement>(
@@ -455,11 +478,7 @@ export function startStudio() {
   function task(action: () => Promise<void>) {
     if (busy) return;
     setBusy(true);
-    void action().catch(showError).finally(() => {
-      setBusy(false);
-      if (focusConnect) element('github-token').focus();
-      focusConnect = false;
-    });
+    void action().catch(showError).finally(() => setBusy(false));
   }
 
   function addImage(file: File) {
@@ -480,7 +499,6 @@ export function startStudio() {
   }
 
   async function sendPost(published: boolean) {
-    const client = requireApi();
     capture();
     if (!draft.title || !draft.body.trim()) throw new Error('Add a title and article body before publishing.');
     if (published && draft.cover && !draft.coverAlt) throw new Error('Add alt text for your cover image in Article settings.');
@@ -515,32 +533,10 @@ export function startStudio() {
     }
   }
 
-  element<HTMLFormElement>('connect-form').addEventListener('submit', event => {
-    event.preventDefault();
-    task(async () => {
-      const input = element<HTMLInputElement>('github-token');
-      const token = input.value.trim();
-      input.value = '';
-      if (!/^github_pat_[A-Za-z0-9_]+$/.test(token)) throw new Error('Enter a fine-grained GitHub token for this repository.');
-      const client = new StudioGitHub(token);
-      await client.verifyOwner();
-      remoteFiles = await client.list();
-      api = client;
-      element('connect-details').hidden = true;
-      element('connected').hidden = false;
-      renderLists();
-      tell('GitHub connected.');
-    });
-  });
-
-  element('disconnect').addEventListener('click', () => {
-    api = undefined;
-    remoteFiles = [];
-    element('connect-details').hidden = false;
-    element('connected').hidden = true;
-    renderLists();
-    tell('GitHub disconnected.');
-  });
+  element('disconnect').addEventListener('click', () => task(async () => {
+    await persist();
+    window.location.reload();
+  }));
 
   element('new-post').addEventListener('click', () => task(async () => {
     await persist();
@@ -697,6 +693,8 @@ export function startStudio() {
   }
 
   element('insert-block').addEventListener('click', openBlocks);
+  insertAtLine.addEventListener('mousedown', event => event.preventDefault());
+  insertAtLine.addEventListener('click', openBlocks);
   search.addEventListener('input', renderBlocks);
   search.addEventListener('keydown', event => {
     const first = blockOptions.querySelector('button');
@@ -713,15 +711,16 @@ export function startStudio() {
     setMarkdown(!markdownMode);
     if (markdownMode) sourceText.focus();
     else editor.commands.focus();
+    renderPreview();
   });
   sourceText.addEventListener('input', () => {
     const words = sourceText.value.trim().split(/\s+/u).filter(Boolean).length;
     element('writing-stats').textContent = `${words} ${words === 1 ? 'word' : 'words'}`;
   });
   focusMode.addEventListener('click', () => {
-    const focused = element('article-form').closest('.studio')!.classList.toggle('compose-focus');
+    const focused = studio.classList.toggle('compose-focus');
     focusMode.setAttribute('aria-pressed', String(focused));
-    focusMode.textContent = focused ? 'Exit focus mode' : 'Focus mode';
+    focusMode.textContent = focused ? 'Exit focus' : 'Focus';
   });
   for (const size of ['wide', 'narrow']) {
     element(`preview-${size}`).addEventListener('click', () => {
@@ -768,7 +767,6 @@ export function startStudio() {
     task(async () => {
       clearTimeout(saveTimer);
       if (draft.path) {
-        const client = requireApi();
         await client.commitArticle(draft.path, draft.sha, null, [], `Delete: ${draft.title}`);
         remoteFiles = remoteFiles.filter(file => file.path !== draft.path);
       }
