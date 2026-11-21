@@ -1,0 +1,28 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import Cover from './Cover.astro';
+import { articleUrl, coverImage, formatDate, summary } from '../lib/posts';
+
+interface Props {
+  post: CollectionEntry<'posts'> & { date: Date };
+  featured?: boolean;
+}
+
+const { post, featured = false } = Astro.props;
+const image = coverImage(post);
+const DateTime = post.date.toISOString();
+---
+<article class:list={['story', { featured, 'with-image': image }]}>
+  <a href={articleUrl(post)}>
+    {image && <div class="story-media">
+      <Cover image={image} alt={post.data.coverAlt || ''} priority={featured}
+        sizes={featured ? '(max-width: 767px) 100vw, (max-width: 1200px) 57vw, 680px' : '(max-width: 600px) 100vw, (max-width: 1023px) 50vw, 380px'} />
+    </div>}
+    <div class="story-text">
+      <time datetime={DateTime}>{formatDate(post.date)}</time>
+      <h3>{post.data.title}</h3>
+      {summary(post) && <p>{summary(post)}</p>}
+      {featured && <span class="read-link">Read article <span aria-hidden="true">↗</span></span>}
+    </div>
+  </a>
+</article>

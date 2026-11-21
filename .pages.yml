@@ -1,0 +1,77 @@
+media:
+  input: media
+  output: /media
+  extensions: [jpg, jpeg, png, webp, gif, avif]
+  rename: safe
+
+content:
+  - name: posts
+    label: Articles
+    type: collection
+    path: content/posts
+    format: yaml-frontmatter
+    filename:
+      template: "{primary}.md"
+      field: create
+    view:
+      primary: title
+      fields: [title, status, published]
+    fields:
+      - name: title
+        label: Title
+        type: string
+        required: true
+      - name: subtitle
+        label: Subtitle
+        type: string
+      - name: description
+        label: Short description
+        description: Optional excerpt for the homepage, RSS, and search.
+        type: text
+      - name: status
+        label: Status
+        type: select
+        default: Draft
+        required: true
+        options:
+          values: [Draft, Published]
+      - name: published
+        label: Publication date
+        type: date
+        default: ""
+        description: Set this before publishing. Keep the date when editing a published article.
+        options:
+          format: yyyy-MM-dd
+      - name: featured
+        label: Feature on homepage
+        type: boolean
+        default: false
+      - name: cover
+        label: Cover image
+        type: image
+      - name: coverAlt
+        label: Cover image alt text
+        type: string
+        description: Describe the image for readers using a screen reader. Required when publishing with a cover.
+      - name: coverCaption
+        label: Cover image caption
+        type: string
+      - name: body
+        label: Article
+        type: rich-text
+        options:
+          format: markdown
+      - name: videos
+        label: Videos
+        description: Add YouTube or Vimeo links to embed below the article.
+        type: object
+        list: true
+        fields:
+          - name: url
+            label: Video URL
+            type: string
+            required: true
+          - name: title
+            label: Video title
+            type: string
+            required: true

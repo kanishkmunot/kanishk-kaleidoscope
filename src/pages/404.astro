@@ -1,0 +1,11 @@
+---
+import Editorial from '../layouts/Editorial.astro';
+import { url } from '../lib/posts';
+---
+<Editorial title="Page not found" noindex>
+  <section class="frame masthead error-page">
+    <h1>Page not found</h1>
+    <p>The page may have moved or been unpublished.</p>
+    <a class="back-link" href={url()}><span aria-hidden="true">←</span> All stories</a>
+  </section>
+</Editorial>

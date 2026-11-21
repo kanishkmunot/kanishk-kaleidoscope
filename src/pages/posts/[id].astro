@@ -1,0 +1,67 @@
+---
+import { getImage } from 'astro:assets';
+import { render } from 'astro:content';
+import type { InferGetStaticPropsType } from 'astro';
+import Cover from '../../components/Cover.astro';
+import Editorial from '../../layouts/Editorial.astro';
+import { coverImage, formatDate, publishedPosts, summary, url } from '../../lib/posts';
+import { videoEmbed } from '../../lib/video.mjs';
+
+export async function getStaticPaths() {
+  const posts = await publishedPosts();
+  return posts.map(post => ({ params: { id: post.id }, props: { post } }));
+}
+type Props = InferGetStaticPropsType<typeof getStaticPaths>;
+const { post } = Astro.props as Props;
+const { Content } = await render(post);
+const { data, date } = post;
+const cover = coverImage(post);
+const shareImage = cover && (cover.format === 'gif' ? cover.src : (await getImage({
+  src: cover, width: Math.min(1200, cover.width), format: 'jpeg',
+})).src);
+const videos = (data.videos || []).map(video => ({ ...video, embed: videoEmbed(video.url) }));
+---
+<Editorial title={data.title} description={summary(post)} image={shareImage} published={date}>
+  <article class="frame article">
+    <a class="back-link" href={url()}><span aria-hidden="true">←</span> All stories</a>
+    <header class="reading article-header">
+      <time datetime={date.toISOString()}>{formatDate(date)}</time>
+      <h1>{data.title}</h1>
+      {data.subtitle && <p class="subtitle">{data.subtitle}</p>}
+    </header>
+    {cover && <figure class="article-cover">
+      <Cover image={cover} alt={data.coverAlt || ''} sizes="(max-width: 1140px) 100vw, 1050px" priority />
+      {data.coverCaption && <figcaption>{data.coverCaption}</figcaption>}
+    </figure>}
+    <div class="reading prose">
+      <Content />
+      {videos.map(({ title, embed, url: videoUrl }) => (
+        <figure class="video">
+          {embed && <iframe src={embed.src} title={title} width="640" height="360"
+            loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen
+            allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen" />}
+          <figcaption><a href={videoUrl}>{title}{embed ? ` · Watch on ${embed.provider}` : ''}</a></figcaption>
+        </figure>
+      ))}
+      <div class="article-end">
+        <button class="copy-button" type="button" hidden>Copy link</button>
+        <output class="copy-status" aria-live="polite"></output>
+      </div>
+    </div>
+  </article>
+</Editorial>
+<script>
+  const button = document.querySelector<HTMLButtonElement>('.copy-button');
+  const status = document.querySelector<HTMLOutputElement>('.copy-status');
+  if (button && status && navigator.clipboard?.writeText) {
+    button.hidden = false;
+    button.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(window.location.href);
+        status.value = 'Link copied.';
+      } catch {
+        status.value = 'Copy the address from your browser.';
+      }
+    });
+  }
+</script>
