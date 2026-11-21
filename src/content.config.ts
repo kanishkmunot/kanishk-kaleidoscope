@@ -1,5 +1,6 @@
 import { defineCollection } from 'astro:content';
 import { glob } from 'astro/loaders';
+import { readCoverCredit } from './lib/cover-credit';
 import { z } from 'astro/zod';
 
 const optionalText = z.string().trim().nullish().transform(value => value || undefined);
@@ -24,6 +25,7 @@ const posts = defineCollection({
     cover: optionalText,
     coverAlt: optionalText,
     coverCaption: optionalText,
+    coverCredit: z.unknown().optional().transform(readCoverCredit),
     videos: z.array(z.object({ url: z.url(), title: z.string().trim().min(1) })).nullish(),
   }).superRefine((post, context) => {
     if (post.status === 'Published' && !post.published) {

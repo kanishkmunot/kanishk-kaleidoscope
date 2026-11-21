@@ -1,4 +1,5 @@
 import { getCollection, type CollectionEntry } from 'astro:content';
+import { unsplashCover } from './cover-credit';
 import type { ImageMetadata } from 'astro';
 
 export const name = "Kanishk's Kaleidoscope";
@@ -25,7 +26,9 @@ const media = import.meta.glob<{ default: ImageMetadata }>('/media/*.{png,jpg,jp
 
 export function coverImage(post: CollectionEntry<'posts'>) {
   if (!post.data.cover) return undefined;
-  const cover = media[decodeURI(post.data.cover)]?.default;
+  if (post.data.coverCredit && unsplashCover(post.data.cover, 1200)) return post.data.cover;
+  const path = post.data.cover;
+  const cover = media[path]?.default || Object.entries(media).find(([key]) => encodeURI(key) === path)?.[1].default;
   if (!cover && post.data.status === 'Published') {
     console.warn(`Missing cover for ${post.id}: ${post.data.cover}`);
   }

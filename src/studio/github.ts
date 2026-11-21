@@ -68,6 +68,14 @@ export class StudioGitHub {
     return decodeText(result.content);
   }
 
+  async readAppearance() {
+    const settings = await this.api<{ sha: string; content: string }>(
+      `${repoPath}/contents/src/data/appearance.json?ref=${branch}`,
+    );
+    const data = JSON.parse(decodeText(settings.content));
+    return { sha: settings.sha, palette: data.palette as unknown };
+  }
+
   async commitArticle(
     path: string, previousSha: string | undefined, body: string | null,
     assets: Array<{ path: string; blob: Blob }>, message: string,

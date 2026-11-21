@@ -1,5 +1,6 @@
 ---
 import type { CollectionEntry } from 'astro:content';
+import PhotoCredit from './PhotoCredit.astro';
 import Cover from './Cover.astro';
 import { articleUrl, coverImage, formatDate, summary } from '../lib/posts';
 
@@ -25,4 +26,5 @@ const DateTime = post.date.toISOString();
       {featured && <span class="read-link">Read article <span aria-hidden="true">↗</span></span>}
     </div>
   </a>
+  {image && post.data.coverCredit && <div class="story-credit"><PhotoCredit credit={post.data.coverCredit} /></div>}
 </article>

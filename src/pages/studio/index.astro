@@ -1,6 +1,7 @@
 ---
 import Editorial from '../../layouts/Editorial.astro';
 import '../../styles/studio.css';
+import { palettes } from '../../lib/appearance';
 ---
 <Editorial title="Owner access" noindex workspace>
   <meta slot="head" http-equiv="Content-Security-Policy"
@@ -31,6 +32,7 @@ import '../../styles/studio.css';
         <button type="button" id="preview" class="studio-secondary" aria-pressed="false">Live preview</button>
         <button type="button" id="publish-top" class="studio-primary">Publish</button>
         <button type="button" id="passkey-setup" class="studio-link" hidden>Set up passkey</button>
+        <button type="button" id="site-style" class="studio-link">Site colors</button>
         <button type="button" id="disconnect" class="studio-link">Lock</button>
       </div>
     </header>
@@ -106,12 +108,22 @@ import '../../styles/studio.css';
               <input id="article-date" type="date" />
               <label for="cover-file">Cover image</label>
               <input id="cover-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/avif" />
+              <button id="unsplash-open" type="button" class="studio-secondary">Choose an Unsplash cover</button>
               <p id="cover-status"></p>
+              <img id="cover-thumbnail" class="studio-cover-thumbnail" alt="" hidden />
               <button id="remove-cover" class="studio-link" type="button" hidden>Remove cover</button>
               <label for="cover-alt">Cover image alt text</label>
               <input id="cover-alt" type="text" />
               <label for="cover-caption">Cover image caption</label>
               <input id="cover-caption" type="text" />
+              <details class="cover-credit-fields">
+                <summary>Unsplash credit</summary>
+                <div class="studio-fields">
+                  <label for="credit-name">Photographer name</label><input id="credit-name" type="text" />
+                  <label for="credit-profile">Unsplash profile URL</label><input id="credit-profile" type="url" />
+                  <label for="credit-photo">Unsplash photo URL</label><input id="credit-photo" type="url" />
+                </div>
+              </details>
               <label for="article-videos">YouTube or Vimeo URLs <span>(one per line)</span></label>
               <textarea id="article-videos" rows="2"></textarea>
               <label class="studio-checkbox"><input id="article-featured" type="checkbox" /> Feature on homepage</label>
@@ -136,7 +148,7 @@ import '../../styles/studio.css';
             <h1 id="preview-title"></h1>
             <p class="subtitle" id="preview-subtitle"></p>
           </header>
-          <figure id="preview-cover" hidden><img id="preview-image" alt="" /><figcaption id="preview-caption"></figcaption></figure>
+          <figure id="preview-cover" hidden><img id="preview-image" alt="" /><figcaption><span id="preview-caption"></span><span id="preview-credit" class="media-credit"></span></figcaption></figure>
           <div id="preview-body" class="prose"></div>
           <div id="preview-videos"></div>
           </div>
@@ -144,6 +156,25 @@ import '../../styles/studio.css';
         <p id="studio-status" class="studio-status" role="status" aria-live="polite"></p>
       </section>
     </div>
+    <dialog id="site-style-dialog" class="studio-dialog" aria-labelledby="site-style-title">
+      <div class="dialog-head"><h2 id="site-style-title">Site colors</h2><button type="button" class="studio-secondary" data-close-dialog>Close</button></div>
+      <form id="site-style-form" class="studio-fields">
+        <label for="site-palette">Accent palette</label>
+        <select id="site-palette" class="site-palette">
+          {Object.entries(palettes).map(([key, name]) => <option value={key}>{name}</option>)}
+        </select>
+        <p class="site-style-sample">This is how the accent looks in your current light or dark mode.</p>
+        <div class="dialog-actions"><button type="submit" class="studio-primary">Save site colors</button></div>
+        <p id="site-style-status" role="status"></p>
+      </form>
+    </dialog>
+    <dialog id="unsplash-dialog" class="studio-dialog unsplash-dialog" aria-labelledby="unsplash-title">
+      <div class="dialog-head"><h2 id="unsplash-title">Unsplash covers</h2><button type="button" class="studio-secondary" data-close-dialog>Close</button></div>
+      <label for="unsplash-search">Filter selected photos</label>
+      <input type="search" id="unsplash-search" placeholder="Try flowers, mountains, or coast" autocomplete="off" />
+      <div id="unsplash-results" class="unsplash-results"></div>
+      <a id="unsplash-browse" class="studio-link" href="https://unsplash.com/" target="_blank" rel="noopener noreferrer">Browse more photos on Unsplash ↗</a>
+    </dialog>
     <dialog id="blocks-dialog" class="studio-dialog" aria-labelledby="blocks-title">
       <div class="dialog-head"><h2 id="blocks-title">Insert a block</h2><button type="button" class="studio-secondary" data-close-dialog>Close</button></div>
       <label for="block-search">Search blocks</label>

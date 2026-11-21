@@ -3,6 +3,8 @@ import '@fontsource-variable/fraunces';
 import '@fontsource-variable/instrument-sans';
 import '../styles/site.css';
 import '../styles/journal.css';
+import appearance from '../data/appearance.json';
+import { isPalette } from '../lib/appearance';
 import { name, description as siteDescription, url } from '../lib/posts';
 
 interface Props {
@@ -19,7 +21,7 @@ const pageTitle = title ? `${title} | ${name}` : name;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 ---
 <!doctype html>
-<html lang="en">
+<html lang="en" data-palette={isPalette(appearance.palette) ? appearance.palette : 'ocean'}>
   <head>
     <meta charset="utf-8" />
     <slot name="head" />

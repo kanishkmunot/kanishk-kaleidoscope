@@ -1,3 +1,5 @@
+import type { CoverCredit } from '../lib/cover-credit';
+
 export type Video = { url: string; title: string };
 
 export interface Draft {
@@ -14,6 +16,7 @@ export interface Draft {
   cover: string;
   coverAlt: string;
   coverCaption: string;
+  coverCredit?: CoverCredit;
   featured: boolean;
   videos: Video[];
   files: Record<string, Blob>;

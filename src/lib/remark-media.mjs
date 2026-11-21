@@ -15,7 +15,7 @@ export function remarkEditorialMedia() {
     visit(tree, 'paragraph', (node, index, parent) => {
       if (!parent || index === undefined || node.children.length !== 1) return;
       const [image] = node.children;
-      if (image.type !== 'image' || !image.title) return;
+      if (image.type !== 'image') return;
       const caption = image.title;
       delete image.title;
       parent.children[index] = {
@@ -23,7 +23,7 @@ export function remarkEditorialMedia() {
         data: { hName: 'figure' },
         children: [
           image,
-          { type: 'emphasis', data: { hName: 'figcaption' }, children: [{ type: 'text', value: caption }] },
+          ...(caption ? [{ type: 'emphasis', data: { hName: 'figcaption' }, children: [{ type: 'text', value: caption }] }] : []),
         ],
       };
     });

@@ -22,11 +22,11 @@ const latest = posts.filter(post => post.id !== feature?.id);
         </div>
       </div>
       <div class="journal-art">
-        <Image src={prism} alt="Optical glass prisms refract orange and violet light" sizes="(max-width: 760px) 100vw, 600px" layout="constrained" priority />
+        <Image src={prism} alt="Teal and amber glass prisms scatter sunlight across a sandy surface" sizes="(max-width: 760px) 100vw, 600px" layout="constrained" priority />
       </div>
     </section>
 
-    <section class="story-section journal-stories" id="stories" aria-labelledby="stories-heading">
+    <section class="story-section journal-stories" id="stories" data-reveal aria-labelledby="stories-heading">
       <div class="section-title">
         <h2 id="stories-heading">From the journal</h2>
       </div>
@@ -40,3 +40,8 @@ const latest = posts.filter(post => post.id !== feature?.id);
 
   </div>
 </Editorial>
+
+<script>
+  import { enableJournalMotion } from '../lib/journal-motion';
+  enableJournalMotion();
+</script>

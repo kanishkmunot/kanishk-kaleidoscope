@@ -7,6 +7,9 @@ import { TaskList, TaskItem } from '@tiptap/extension-list';
 import { parse, stringify } from 'yaml';
 import { freshDraft, getDrafts, removeDraft, saveDraft, type Draft } from './drafts';
 import { rawMediaUrl, StudioGitHub, type ArticleFile } from './github';
+import { isPalette } from '../lib/appearance';
+import { readCoverCredit, unsplashCover } from '../lib/cover-credit';
+import { unsplashCovers } from './unsplash-covers';
 import { videoEmbed } from '../lib/video.mjs';
 
 const element = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -33,7 +36,7 @@ function postFromMarkdown(source: string, file: ArticleFile): Draft {
     description: stringValue(data.description), date: stringValue(data.published).slice(0, 10),
     body: match ? source.slice(match[0].length).trim() : source,
     cover: stringValue(data.cover), coverAlt: stringValue(data.coverAlt),
-    coverCaption: stringValue(data.coverCaption), featured: data.featured === true,
+    coverCaption: stringValue(data.coverCaption), coverCredit: readCoverCredit(data.coverCredit), featured: data.featured === true,
     videos: Array.isArray(data.videos) ? data.videos.filter(video =>
       typeof video?.url === 'string' && typeof video?.title === 'string') : [],
     frontMatter: data,
@@ -51,6 +54,7 @@ function markdownFromPost(draft: Draft, published: boolean) {
     cover: draft.cover || undefined,
     coverAlt: draft.coverAlt || undefined,
     coverCaption: draft.coverCaption || undefined,
+    coverCredit: draft.cover ? draft.coverCredit : undefined,
     featured: draft.featured || undefined,
     videos: draft.videos.length ? draft.videos : undefined,
   };
@@ -91,6 +95,16 @@ export function startStudio(client: StudioGitHub, files: ArticleFile[]) {
   const publishTop = element<HTMLButtonElement>('publish-top');
   const status = element('studio-status');
   const coverFile = element<HTMLInputElement>('cover-file');
+  const coverThumbnail = element<HTMLImageElement>('cover-thumbnail');
+  const unsplashDialog = element<HTMLDialogElement>('unsplash-dialog');
+  const unsplashSearch = textField('unsplash-search');
+  const paletteDialog = element<HTMLDialogElement>('site-style-dialog');
+  const palette = element<HTMLSelectElement>('site-palette');
+  const styleStatus = element('site-style-status');
+  const creditName = textField('credit-name');
+  const creditProfile = textField('credit-profile');
+  const creditPhoto = textField('credit-photo');
+  let publicPalette = document.documentElement.dataset.palette || 'ocean';
   const inlineFile = element<HTMLInputElement>('inline-file');
   const featured = element<HTMLInputElement>('article-featured');
   const publishButton = element<HTMLButtonElement>('publish');
@@ -201,6 +215,9 @@ export function startStudio(client: StudioGitHub, files: ArticleFile[]) {
         visualSnapshot = serialized;
       }
     }
+    draft.coverCredit = draft.cover ? readCoverCredit({
+      author: creditName.value, profile: creditProfile.value.trim(), page: creditPhoto.value.trim(),
+    }) : undefined;
     draft.featured = featured.checked;
     draft.videos = [...new Set(videoField.value.split('\n').map(line => line.trim()).filter(Boolean))]
       .map(url => draft.videos.find(video => video.url === url) ??
@@ -293,6 +310,7 @@ export function startStudio(client: StudioGitHub, files: ArticleFile[]) {
     draft = structuredClone(value);
     editVersion = savedVersion = 0;
     for (const [key, input] of Object.entries(fields)) input.value = draft[key as keyof typeof fields];
+    setCreditFields();
     featured.checked = draft.featured;
     videoField.value = draft.videos.map(video => video.url).join('\n');
     sourceText.value = draft.body;
@@ -308,7 +326,13 @@ export function startStudio(client: StudioGitHub, files: ArticleFile[]) {
   }
 
   function updateCover() {
-    element('cover-status').textContent = draft.cover ? draft.cover.split('/').pop()! : 'No cover selected.';
+    element('cover-status').textContent = draft.coverCredit ? `Photo by ${draft.coverCredit.author} on Unsplash` :
+      draft.cover ? 'Cover selected' : 'No cover selected.';
+    const source = unsplashCover(draft.cover, 480) || imageUrl(draft.cover);
+    coverThumbnail.hidden = !source;
+    if (source) coverThumbnail.src = source;
+    else coverThumbnail.removeAttribute('src');
+    coverThumbnail.alt = draft.coverAlt;
     element('remove-cover').hidden = !draft.cover;
   }
 
@@ -415,11 +439,26 @@ export function startStudio(client: StudioGitHub, files: ArticleFile[]) {
     element('preview-subtitle').textContent = draft.subtitle;
     element('preview-date').textContent = draft.date || today();
     const cover = element<HTMLImageElement>('preview-image');
-    const coverSrc = imageUrl(draft.cover);
+    const coverSrc = unsplashCover(draft.cover, 800) || imageUrl(draft.cover);
     element('preview-cover').hidden = !coverSrc;
     if (coverSrc && cover.getAttribute('src') !== coverSrc) cover.src = coverSrc;
     cover.alt = draft.coverAlt;
     element('preview-caption').textContent = draft.coverCaption;
+    const credit = element('preview-credit');
+    const attribution = draft.coverCredit;
+    if (attribution) {
+      const link = document.createElement('a');
+      link.href = attribution.profile;
+      link.textContent = attribution.author;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      const source = link.cloneNode() as HTMLAnchorElement;
+      source.href = attribution.page;
+      source.textContent = 'Unsplash';
+      credit.replaceChildren('Photo by ', link, ' on ', source);
+    } else {
+      credit.replaceChildren();
+    }
     let previewEditor = editor;
     if (markdownMode) {
       markdownPreview ??= new Editor({
@@ -470,7 +509,7 @@ export function startStudio(client: StudioGitHub, files: ArticleFile[]) {
   function setBusy(value: boolean) {
     busy = value;
     for (const control of document.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLTextAreaElement>(
-      '.studio :is(button, input, textarea)',
+      '.studio :is(button, input, textarea, select)',
     )) control.disabled = value;
     editor.setEditable(!value, false);
   }
@@ -502,6 +541,9 @@ export function startStudio(client: StudioGitHub, files: ArticleFile[]) {
     capture();
     if (!draft.title || !draft.body.trim()) throw new Error('Add a title and article body before publishing.');
     if (published && draft.cover && !draft.coverAlt) throw new Error('Add alt text for your cover image in Article settings.');
+    if (draft.cover && [creditName.value, creditProfile.value, creditPhoto.value].some(value => value.trim()) && !draft.coverCredit) {
+      throw new Error('Complete the Unsplash credit with the photographer’s name, profile URL, and photo URL.');
+    }
     if (draft.videos.some(video => !videoEmbed(video.url))) throw new Error('Use a valid YouTube or Vimeo link in Article settings.');
     if (!draft.date && published) {
       draft.date = today();
@@ -545,7 +587,11 @@ export function startStudio(client: StudioGitHub, files: ArticleFile[]) {
   }));
   coverFile.addEventListener('change', () => {
     try {
-      if (coverFile.files?.[0]) draft.cover = addImage(coverFile.files[0]);
+      if (coverFile.files?.[0]) {
+        draft.cover = addImage(coverFile.files[0]);
+        draft.coverCredit = undefined;
+        setCreditFields();
+      }
       updateCover();
       queueSave();
     } catch (error) {
@@ -556,9 +602,95 @@ export function startStudio(client: StudioGitHub, files: ArticleFile[]) {
   });
   element('remove-cover').addEventListener('click', () => {
     draft.cover = '';
+    draft.coverCredit = undefined;
+    setCreditFields();
     updateCover();
     queueSave();
   });
+  function setCreditFields() {
+    creditName.value = draft.coverCredit?.author || '';
+    creditProfile.value = draft.coverCredit?.profile || '';
+    creditPhoto.value = draft.coverCredit?.page || '';
+  }
+
+  function renderUnsplashChoices() {
+    const query = unsplashSearch.value.trim().toLowerCase();
+    const results = element('unsplash-results');
+    results.replaceChildren();
+    for (const photo of unsplashCovers) {
+      if (!`${photo.title} ${photo.keywords} ${photo.credit.author}`.toLowerCase().includes(query)) continue;
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'unsplash-choice';
+      const image = document.createElement('img');
+      image.src = unsplashCover(photo.src, 480)!;
+      image.alt = '';
+      image.width = 480;
+      image.height = 270;
+      image.loading = 'lazy';
+      const name = document.createElement('span');
+      name.textContent = photo.title;
+      const credit = document.createElement('small');
+      credit.textContent = photo.credit.author;
+      card.append(image, name, credit);
+      card.addEventListener('click', () => {
+        draft.cover = photo.src;
+        draft.coverCredit = photo.credit;
+        draft.coverAlt = photo.title;
+        fields.coverAlt.value = photo.title;
+        setCreditFields();
+        updateCover();
+        queueSave();
+        unsplashDialog.close();
+      });
+      results.append(card);
+    }
+    if (!results.children.length) {
+      const empty = document.createElement('p');
+      empty.textContent = 'No matching covers in this selection.';
+      results.append(empty);
+    }
+    const browse = element<HTMLAnchorElement>('unsplash-browse');
+    browse.href = query ? `https://unsplash.com/s/photos/${encodeURIComponent(query)}?utm_source=kanishks_kaleidoscope&utm_medium=referral` :
+      'https://unsplash.com/?utm_source=kanishks_kaleidoscope&utm_medium=referral';
+  }
+
+  element('unsplash-open').addEventListener('click', () => {
+    unsplashSearch.value = '';
+    renderUnsplashChoices();
+    unsplashDialog.showModal();
+    unsplashSearch.focus();
+  });
+  unsplashSearch.addEventListener('input', renderUnsplashChoices);
+
+  element('site-style').addEventListener('click', () => {
+    palette.value = publicPalette;
+    styleStatus.textContent = '';
+    paletteDialog.showModal();
+  });
+  palette.addEventListener('change', () => {
+    if (isPalette(palette.value)) document.documentElement.dataset.palette = palette.value;
+  });
+  paletteDialog.addEventListener('close', () => { document.documentElement.dataset.palette = publicPalette; });
+  element<HTMLFormElement>('site-style-form').addEventListener('submit', event => {
+    event.preventDefault();
+    if (busy || !isPalette(palette.value)) return;
+    const selected = palette.value;
+    setBusy(true);
+    styleStatus.textContent = 'Saving site colors…';
+    void client.readAppearance().then(settings => {
+      if (settings.palette === selected) return;
+      return client.commitArticle('src/data/appearance.json', settings.sha,
+        JSON.stringify({ palette: selected }, null, 2) + '\n', [], `Set site palette to ${selected}`);
+    }).then(() => {
+      publicPalette = selected;
+      document.documentElement.dataset.palette = selected;
+      styleStatus.textContent = 'Saved. GitHub Pages is updating the public blog.';
+    }).catch(error => {
+      styleStatus.textContent = error instanceof Error ? error.message : 'Could not save the site colors.';
+    }).finally(() => setBusy(false));
+  });
+
   function openNextImage() {
     if (!imageQueue.length) return;
     const file = imageQueue[0];

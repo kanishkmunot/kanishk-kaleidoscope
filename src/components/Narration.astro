@@ -1,0 +1,17 @@
+<div class="narration" aria-label="Article narration" hidden>
+  <button class="narration-play" type="button" aria-label="Listen to article">
+    <span class="narration-icon" aria-hidden="true">▶</span>
+    <span class="narration-label">Listen</span>
+  </button>
+  <button class="narration-stop" type="button" hidden>Stop</button>
+  <details class="narration-voices" hidden>
+    <summary>Voice</summary>
+    <label for="narration-voice">Narration voice</label>
+    <select id="narration-voice"></select>
+  </details>
+  <span class="narration-status" role="status"></span>
+</div>
+<script>
+  import { enableNarration } from '../lib/narration';
+  enableNarration();
+</script>

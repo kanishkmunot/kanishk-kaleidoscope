@@ -150,3 +150,15 @@
 @media (prefers-reduced-motion: no-preference) {
   .studio-preview, .studio-dialog[open] { animation: enter-journal .22s ease-out both; }
 }
+.studio-cover-thumbnail { display: block; width: min(100%, 260px); max-height: 150px; object-fit: cover; }
+.cover-credit-fields .studio-fields { margin-top: .35rem; }
+.unsplash-dialog { width: min(92vw, 700px); }
+.unsplash-results { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 148px), 1fr)); gap: .65rem; margin: .8rem 0; }
+.unsplash-results .unsplash-choice { padding: 0 0 .5rem; border: 1px solid var(--media-border); border-radius: 6px; background: var(--surface); text-align: left; color: var(--ink); overflow: hidden; }
+.unsplash-choice img { width: 100%; aspect-ratio: 16/9; object-fit: cover; }
+.unsplash-choice span, .unsplash-choice small { display: block; margin-inline: .45rem; }
+.unsplash-choice span { margin-top: .4rem; font-weight: 640; font-size: .86rem; }
+.unsplash-choice small { margin-top: .12rem; color: var(--muted); font-size: .75rem; }
+.unsplash-results .unsplash-choice:hover { background: var(--surface-hover); }
+.site-palette { background: var(--paper); border: 1px solid var(--line); color: var(--ink); border-radius: 6px; padding: .5rem; font: inherit; }
+.site-style-sample { color: var(--accent); border: 1px solid var(--media-border); padding: .65rem; border-radius: 6px; background: var(--surface); }

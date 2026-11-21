@@ -1,0 +1,7 @@
+---
+import type { CoverCredit } from '../lib/cover-credit';
+
+interface Props { credit: CoverCredit; }
+const { credit } = Astro.props;
+---
+<span class="media-credit">Photo by <a href={credit.profile}>{credit.author}</a> on <a href={credit.page}>Unsplash</a></span>
