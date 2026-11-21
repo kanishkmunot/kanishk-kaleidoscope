@@ -7,11 +7,18 @@ import '../../styles/studio.css';
     content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' blob: data: https:; connect-src https://api.github.com; frame-src https://www.youtube-nocookie.com https://player.vimeo.com; base-uri 'none'; form-action 'none'; object-src 'none'" />
   <section class="owner-access" id="owner-access" aria-labelledby="owner-heading">
     <h1 id="owner-heading">Owner access</h1>
-    <form id="connect-form" autocomplete="off">
-      <label for="github-token">GitHub repository token</label>
-      <input id="github-token" type="password" autocomplete="off" spellcheck="false" required />
-      <button type="submit" class="studio-primary">Unlock</button>
-    </form>
+    <div id="passkey-options" hidden>
+      <button type="button" id="passkey-unlock" class="studio-primary">Unlock with passkey</button>
+      <button type="button" id="passkey-forget" class="studio-link">Forget saved token</button>
+    </div>
+    <details id="token-options" open>
+      <summary>Use a GitHub token</summary>
+      <form id="connect-form" autocomplete="off">
+        <label for="github-token">GitHub repository token</label>
+        <input id="github-token" type="password" autocomplete="off" spellcheck="false" required />
+        <button type="submit" class="studio-primary">Unlock</button>
+      </form>
+    </details>
     <p id="access-status" role="status"></p>
   </section>
   <div id="workspace-mount" hidden></div>
@@ -23,6 +30,7 @@ import '../../styles/studio.css';
         <button type="button" id="focus-mode" class="studio-secondary" aria-pressed="false">Focus</button>
         <button type="button" id="preview" class="studio-secondary" aria-pressed="false">Live preview</button>
         <button type="button" id="publish-top" class="studio-primary">Publish</button>
+        <button type="button" id="passkey-setup" class="studio-link" hidden>Set up passkey</button>
         <button type="button" id="disconnect" class="studio-link">Lock</button>
       </div>
     </header>

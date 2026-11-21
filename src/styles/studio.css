@@ -7,7 +7,11 @@
   background: var(--paper);
 }
 .owner-access h1 { font: 580 2.15rem/1.1 var(--display); letter-spacing: -.04em; }
-.owner-access form { display: grid; gap: .65rem; margin-top: 1.2rem; }
+.owner-access form { display: grid; gap: .65rem; margin-top: .65rem; }
+.owner-access details { margin-top: 1.05rem; }
+.owner-access summary, .owner-access .studio-link { color: var(--accent); font-size: .88rem; cursor: pointer; }
+#passkey-options:not([hidden]) { display: grid; gap: .65rem; margin-top: 1rem; }
+.owner-access .studio-link { background: transparent; border: 0; text-decoration: underline; }
 #access-status { color: var(--muted); font-size: .88rem; margin-top: .7rem; }
 #access-status:empty { display: none; }
 
