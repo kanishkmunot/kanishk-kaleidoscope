@@ -19,9 +19,7 @@ The repository is public. Local drafts stay in your browser until you publish. P
 
 ## Covers and appearance
 
-Open **Article settings and media → Choose an Unsplash cover** to select one of the included Unsplash photos. The studio fills in the alt text and adds linked photographer credit on the published article and its card. **Browse more photos on Unsplash** opens the full catalog. To use another photo, upload it as a cover and fill in **Unsplash credit** with the photographer's name, profile URL, and photo URL.
-
-**Site colors** lets you preview and save a palette for the public blog. Visitors still choose light or dark mode independently. The theme changes deploy through the same GitHub Pages workflow.
+Click **Choose an Unsplash cover** below the title and subtitle to select one of the included Unsplash photos. The studio fills in the alt text and adds linked photographer credit on the published article and its card. **Browse more photos on Unsplash** opens the full catalog. To use another photo, upload it as a cover and fill in **Unsplash credit** with the photographer's name, profile URL, and photo URL.
 
 ## Publish directly on GitHub
 

@@ -7,7 +7,6 @@ import { TaskList, TaskItem } from '@tiptap/extension-list';
 import { parse, stringify } from 'yaml';
 import { freshDraft, getDrafts, removeDraft, saveDraft, type Draft } from './drafts';
 import { rawMediaUrl, StudioGitHub, type ArticleFile } from './github';
-import { isPalette } from '../lib/appearance';
 import { readCoverCredit, unsplashCover } from '../lib/cover-credit';
 import { unsplashCovers } from './unsplash-covers';
 import { videoEmbed } from '../lib/video.mjs';
@@ -98,13 +97,9 @@ export function startStudio(client: StudioGitHub, files: ArticleFile[]) {
   const coverThumbnail = element<HTMLImageElement>('cover-thumbnail');
   const unsplashDialog = element<HTMLDialogElement>('unsplash-dialog');
   const unsplashSearch = textField('unsplash-search');
-  const paletteDialog = element<HTMLDialogElement>('site-style-dialog');
-  const palette = element<HTMLSelectElement>('site-palette');
-  const styleStatus = element('site-style-status');
   const creditName = textField('credit-name');
   const creditProfile = textField('credit-profile');
   const creditPhoto = textField('credit-photo');
-  let publicPalette = document.documentElement.dataset.palette || 'ocean';
   const inlineFile = element<HTMLInputElement>('inline-file');
   const featured = element<HTMLInputElement>('article-featured');
   const publishButton = element<HTMLButtonElement>('publish');
@@ -662,34 +657,6 @@ export function startStudio(client: StudioGitHub, files: ArticleFile[]) {
     unsplashSearch.focus();
   });
   unsplashSearch.addEventListener('input', renderUnsplashChoices);
-
-  element('site-style').addEventListener('click', () => {
-    palette.value = publicPalette;
-    styleStatus.textContent = '';
-    paletteDialog.showModal();
-  });
-  palette.addEventListener('change', () => {
-    if (isPalette(palette.value)) document.documentElement.dataset.palette = palette.value;
-  });
-  paletteDialog.addEventListener('close', () => { document.documentElement.dataset.palette = publicPalette; });
-  element<HTMLFormElement>('site-style-form').addEventListener('submit', event => {
-    event.preventDefault();
-    if (busy || !isPalette(palette.value)) return;
-    const selected = palette.value;
-    setBusy(true);
-    styleStatus.textContent = 'Saving site colors…';
-    void client.readAppearance().then(settings => {
-      if (settings.palette === selected) return;
-      return client.commitArticle('src/data/appearance.json', settings.sha,
-        JSON.stringify({ palette: selected }, null, 2) + '\n', [], `Set site palette to ${selected}`);
-    }).then(() => {
-      publicPalette = selected;
-      document.documentElement.dataset.palette = selected;
-      styleStatus.textContent = 'Saved. GitHub Pages is updating the public blog.';
-    }).catch(error => {
-      styleStatus.textContent = error instanceof Error ? error.message : 'Could not save the site colors.';
-    }).finally(() => setBusy(false));
-  });
 
   function openNextImage() {
     if (!imageQueue.length) return;
